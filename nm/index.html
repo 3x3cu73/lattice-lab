@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lattice Lab · Lüders at the atomic scale</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1118'/%3E%3Cpath d='M8 22h16M16 22V9' stroke='%232dd4bf' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="shell">
+  <header class="bar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">⊥</span>
+      <div>
+        <b>Lattice Lab</b>
+        <small>Yield point at the atomic scale · 9 nm window</small>
+      </div>
+    </div>
+
+    <div class="bar-mid">
+      <div class="pills" role="group" aria-label="Scene">
+        <button type="button" data-scene="focus" aria-pressed="true" title="One dislocation, like a textbook animation">One dislocation</button>
+        <button type="button" data-scene="front" aria-pressed="false" title="Source, obstacles, pile-up at a grain boundary">Lüders front</button>
+      </div>
+      <div class="pills" role="group" aria-label="Loading">
+        <button type="button" data-mode="test" aria-pressed="true" title="A machine pulls at the chosen strain rate; stress follows what the dislocations do">Tensile test</button>
+        <button type="button" data-mode="manual" aria-pressed="false" title="Set the shear stress yourself">Manual stress</button>
+      </div>
+    </div>
+
+    <div class="bar-right">
+      <button type="button" id="play" class="round" aria-pressed="true" aria-label="Pause" title="Play / pause (Space)">
+        <svg id="icoPause" viewBox="0 0 20 20"><rect x="5" y="4" width="3.5" height="12" rx="1"/><rect x="11.5" y="4" width="3.5" height="12" rx="1"/></svg>
+        <svg id="icoPlay" viewBox="0 0 20 20" style="display:none"><path d="M6 4l10 6-10 6z"/></svg>
+      </button>
+      <button type="button" id="restart" class="ghost" title="Unload, re-age and start again (R)">Restart</button>
+      <div class="pills small" role="group" aria-label="Speed">
+        <button type="button" data-speed="0.25">¼×</button>
+        <button type="button" data-speed="0.5">½×</button>
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="2">2×</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="panel params">
+      <h3>Material &amp; test</h3>
+      <div class="presets" id="presets"></div>
+
+      <div class="pcard">
+        <div class="ptop"><span>Grain size</span><output id="oD"></output></div>
+        <input type="range" id="sD" min="0" max="1000" step="1" aria-label="Grain size">
+        <div class="effect" id="eD"></div>
+      </div>
+      <div class="pcard">
+        <div class="ptop"><span>Free C + N</span><output id="oC"></output></div>
+        <input type="range" id="sC" min="0" max="100" step="1" aria-label="Free carbon and nitrogen">
+        <div class="effect" id="eC"></div>
+      </div>
+      <div class="pcard">
+        <div class="ptop"><span>Mobile dislocations</span><output id="oR"></output></div>
+        <input type="range" id="sR" min="9" max="14" step="0.05" aria-label="Mobile dislocation density">
+        <div class="effect" id="eR"></div>
+      </div>
+      <div class="pcard">
+        <div class="ptop"><span>Temperature</span><output id="oT"></output></div>
+        <input type="range" id="sT" min="77" max="700" step="1" aria-label="Temperature" class="temp">
+        <div class="effect" id="eT"></div>
+      </div>
+      <div class="pcard">
+        <div class="ptop"><span>Strain rate</span><output id="oE"></output></div>
+        <input type="range" id="sE" min="-5" max="-1" step="0.1" aria-label="Strain rate">
+        <div class="effect" id="eE"></div>
+      </div>
+
+      <div class="switches">
+        <label><input type="checkbox" id="tRerun" checked><span>Re-run test when a slider is released</span></label>
+        <label><input type="checkbox" id="tLabels" checked><span>Captions</span></label>
+        <label><input type="checkbox" id="tHi"><span>Highlight bond switching</span></label>
+        <label><input type="checkbox" id="tShear"><span>Show elastic shear (×20)</span></label>
+        <div id="frontOpts" hidden>
+          <label><input type="checkbox" id="tObs" checked><span>Obstacles on the slip plane</span></label>
+          <label><input type="checkbox" id="tGB" checked><span>Grain boundary and pile-up</span></label>
+        </div>
+      </div>
+    </aside>
+
+    <main class="center">
+      <div class="viewport">
+        <canvas id="atom" aria-label="Iron lattice with an edge dislocation, its extra half-plane and C/N atoms"></canvas>
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="strip">
+        <div class="gauge">
+          <div class="g-top"><span>Shear stress</span><b id="hudS">0</b><small>MPa</small></div>
+          <div class="g-bar"><i id="gFill"></i><i class="tick ly" id="gLY" title="Lower yield (lattice friction)"></i><i class="tick uy" id="gUY" title="Upper yield"></i></div>
+        </div>
+        <div class="bonds"><span>Bond switches</span><b id="hudB">0</b></div>
+        <div class="legend">
+          <span><i class="dot fe"></i>Fe</span>
+          <span><i class="dot half"></i>Extra half-plane</span>
+          <span><i class="dot cn"></i>C / N</span>
+          <span class="k-ly">┆ σLY</span>
+          <span class="k-uy">┆ σUY</span>
+        </div>
+      </div>
+
+      <div class="charts">
+        <section class="card">
+          <h4>Stress vs time</h4>
+          <div class="cv"><canvas id="chart"></canvas></div>
+        </section>
+        <section class="card">
+          <h4>Energy along the slip plane <small>dip = atmosphere, tilt = stress</small></h4>
+          <div class="cv"><canvas id="land"></canvas></div>
+        </section>
+      </div>
+    </main>
+
+    <aside class="panel now">
+      <h3>What's happening</h3>
+      <ol class="phases" id="phases">
+        <li>Elastic</li>
+        <li>Locked</li>
+        <li>Breakaway</li>
+        <li>Glide</li>
+      </ol>
+      <p id="story" class="story"></p>
+
+      <div id="manualCtl" class="manual" hidden>
+        <div class="ptop"><span>Shear stress</span><output id="oS"></output></div>
+        <input type="range" id="sS" min="0" max="1000" step="1" aria-label="Applied shear stress">
+        <div class="btns">
+          <button type="button" id="fresh" class="ghost">Fresh dislocation</button>
+          <button type="button" id="age" class="ghost" aria-pressed="false">Age</button>
+        </div>
+      </div>
+
+      <div class="tiles">
+        <div class="tile accent"><span>Breaks free at</span><b id="tBreak">–</b><small>MPa</small></div>
+        <div class="tile"><span>C/N holding it</span><b id="tHold">–</b><small>atoms</small></div>
+        <div class="tile uy"><span>σUY model</span><b id="tUY">–</b><small>MPa</small></div>
+        <div class="tile ly"><span>σLY model</span><b id="tLY">–</b><small>MPa</small></div>
+      </div>
+      <dl id="read" class="read"></dl>
+    </aside>
+  </div>
+</div>
+<script src="ypp_physics.js"></script>
+<script src="nm_sim.js"></script>
+</body>
+</html>

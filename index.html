@@ -1,155 +1,328 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Lattice Lab · Lüders at the atomic scale</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Multiscale Lüders-band and yield-point tensile simulator for mild steel across cm (50 mm), µm (polycrystal), and nm (9 nm) scales, with custom dataset simulation.">
+<title>Lattice Lab · Lüders bands</title>
+<link rel="stylesheet" href="src/app.css?v=26">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b1118'/%3E%3Cpath d='M8 22h16M16 22V9' stroke='%232dd4bf' stroke-width='3.5' stroke-linecap='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<div class="shell">
-  <header class="bar">
+
+<div class="app" id="app">
+  <!-- Top Bar -->
+  <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">⊥</span>
-      <div>
-        <b>Lattice Lab</b>
-        <small>Yield point at the atomic scale · 9 nm window</small>
+      <svg width="36" height="22" viewBox="0 0 44 28" aria-hidden="true">
+        <path d="M1 5h9l4 5h16l4-5h9v18h-9l-4-5H14l-4 5H1z" fill="var(--brand-steel)"/>
+        <path d="M19 10h9l-4 8h-9z" fill="var(--band-solid)"/>
+      </svg>
+      <div class="brand-text">
+        <h1>Lattice Lab</h1>
+        <p>cm · µm · nm</p>
       </div>
     </div>
 
-    <div class="bar-mid">
-      <div class="pills" role="group" aria-label="Scene">
-        <button type="button" data-scene="focus" aria-pressed="true" title="One dislocation, like a textbook animation">One dislocation</button>
-        <button type="button" data-scene="front" aria-pressed="false" title="Source, obstacles, pile-up at a grain boundary">Lüders front</button>
-      </div>
-      <div class="pills" role="group" aria-label="Loading">
-        <button type="button" data-mode="test" aria-pressed="true" title="A machine pulls at the chosen strain rate; stress follows what the dislocations do">Tensile test</button>
-        <button type="button" data-mode="manual" aria-pressed="false" title="Set the shear stress yourself">Manual stress</button>
-      </div>
+    <div class="scale-switch" id="scaleSwitch" role="tablist" aria-label="Length scale">
+      <button type="button" id="scaleCm" role="tab" aria-selected="true" aria-controls="viewCm" title="Centimetre scale (Shortcut: 1)"><b>cm</b><span>50 mm</span></button>
+      <button type="button" id="scaleMm" role="tab" aria-selected="false" aria-controls="viewMm" title="Micrometre scale (Shortcut: 2)"><b>µm</b><span id="scaleMmSub">820 µm</span></button>
+      <button type="button" id="scaleNm" role="tab" aria-selected="false" aria-controls="viewNm" title="Nanometre scale (Shortcut: 3)"><b>nm</b><span>9 nm</span></button>
     </div>
 
-    <div class="bar-right">
-      <button type="button" id="play" class="round" aria-pressed="true" aria-label="Pause" title="Play / pause (Space)">
-        <svg id="icoPause" viewBox="0 0 20 20"><rect x="5" y="4" width="3.5" height="12" rx="1"/><rect x="11.5" y="4" width="3.5" height="12" rx="1"/></svg>
-        <svg id="icoPlay" viewBox="0 0 20 20" style="display:none"><path d="M6 4l10 6-10 6z"/></svg>
+    <div class="top-tools">
+      <span class="source-badge" id="sourceBadge">Annealed mild steel</span>
+      <button type="button" class="top-btn accent-return" id="exitDatasetBtn" hidden>Use model</button>
+      <button type="button" class="top-btn" id="openDatasetsBtn" title="Upload, paste, simulate, or overlay custom datasets">
+        Datasets <span class="count-pill" id="dsCountBadge" hidden>0</span>
       </button>
-      <button type="button" id="restart" class="ghost" title="Unload, re-age and start again (R)">Restart</button>
-      <div class="pills small" role="group" aria-label="Speed">
-        <button type="button" data-speed="0.25">¼×</button>
-        <button type="button" data-speed="0.5">½×</button>
-        <button type="button" data-speed="1" aria-pressed="true">1×</button>
-        <button type="button" data-speed="2">2×</button>
-      </div>
+      <button type="button" class="top-btn" id="openModelBtn" title="Physics equations and constants">Equations</button>
+      <button type="button" class="top-btn theme-btn" id="themeToggle" hidden>Light</button>
+      <button type="button" class="top-btn" id="sidebarToggle" hidden>Panel</button>
     </div>
   </header>
 
-  <div class="body">
-    <aside class="panel params">
-      <h3>Material &amp; test</h3>
-      <div class="presets" id="presets"></div>
-
-      <div class="pcard">
-        <div class="ptop"><span>Grain size</span><output id="oD"></output></div>
-        <input type="range" id="sD" min="0" max="1000" step="1" aria-label="Grain size">
-        <div class="effect" id="eD"></div>
-      </div>
-      <div class="pcard">
-        <div class="ptop"><span>Free C + N</span><output id="oC"></output></div>
-        <input type="range" id="sC" min="0" max="100" step="1" aria-label="Free carbon and nitrogen">
-        <div class="effect" id="eC"></div>
-      </div>
-      <div class="pcard">
-        <div class="ptop"><span>Mobile dislocations</span><output id="oR"></output></div>
-        <input type="range" id="sR" min="9" max="14" step="0.05" aria-label="Mobile dislocation density">
-        <div class="effect" id="eR"></div>
-      </div>
-      <div class="pcard">
-        <div class="ptop"><span>Temperature</span><output id="oT"></output></div>
-        <input type="range" id="sT" min="77" max="700" step="1" aria-label="Temperature" class="temp">
-        <div class="effect" id="eT"></div>
-      </div>
-      <div class="pcard">
-        <div class="ptop"><span>Strain rate</span><output id="oE"></output></div>
-        <input type="range" id="sE" min="-5" max="-1" step="0.1" aria-label="Strain rate">
-        <div class="effect" id="eE"></div>
+  <div class="workspace">
+    <!-- Left Sidebar: Parameters & Datasets -->
+    <aside class="sidebar" aria-label="Parameters and Datasets">
+      <div class="side-tabs" role="tablist" aria-label="Sidebar tabs">
+        <button type="button" id="tabParams" aria-pressed="true">Parameters</button>
+        <button type="button" id="tabDatasets" aria-pressed="false">Datasets <span class="count-pill" id="tabDsCount" hidden>0</span></button>
       </div>
 
-      <div class="switches">
-        <label><input type="checkbox" id="tRerun" checked><span>Re-run test when a slider is released</span></label>
-        <label><input type="checkbox" id="tLabels" checked><span>Captions</span></label>
-        <label><input type="checkbox" id="tHi"><span>Highlight bond switching</span></label>
-        <label><input type="checkbox" id="tShear"><span>Show elastic shear (×20)</span></label>
-        <div id="frontOpts" hidden>
-          <label><input type="checkbox" id="tObs" checked><span>Obstacles on the slip plane</span></label>
-          <label><input type="checkbox" id="tGB" checked><span>Grain boundary and pile-up</span></label>
+      <!-- Parameters Pane -->
+      <div class="side-scroll" id="paneParams">
+        <div class="ph">
+          <h2>Parameters</h2>
+          <button type="button" id="reset" style="min-height:28px;font-size:12px">Reset</button>
         </div>
+        <div class="presets" id="presets"></div>
+
+        <div class="ctl">
+          <label for="sD">Grain size <output id="oD"></output></label>
+          <input type="range" id="sD" min="0" max="1000" step="1">
+        </div>
+
+        <div class="ctl">
+          <label for="sC">Free C + N <output id="oC"></output></label>
+          <input type="range" id="sC" min="0" max="100" step="1">
+        </div>
+
+        <div class="ctl">
+          <label for="sR">Mobile dislocations <output id="oR"></output></label>
+          <input type="range" id="sR" min="9" max="14" step="0.05">
+        </div>
+
+        <div class="ctl">
+          <label for="sT">Temperature <output id="oT"></output></label>
+          <input type="range" id="sT" min="77" max="700" step="1">
+        </div>
+
+        <div class="ctl">
+          <label for="sE">Strain rate <output id="oE"></output></label>
+          <input type="range" id="sE" min="-5" max="-1" step="0.1">
+        </div>
+
+        <dl class="derived" id="derived"></dl>
+      </div>
+
+      <!-- Custom Datasets Pane -->
+      <div class="side-scroll" id="paneDatasets" hidden>
+        <div class="ph">
+          <h2>Datasets</h2>
+          <button type="button" id="backParams">Parameters</button>
+        </div>
+
+        <div class="ds-banner" id="activeDsBanner" hidden>
+          <div>Simulating custom dataset: <strong id="activeDsName"></strong></div>
+          <button type="button" id="backToModelBtn">Return to Parametric Model</button>
+        </div>
+
+        <div class="ds-dropzone" id="dsDropzone">
+          <input type="file" id="dsFileInput" accept=".csv,.tsv,.txt,.json" aria-label="Upload CSV, TSV, or JSON dataset">
+          <b>Drop CSV / TSV / JSON here</b>
+          <span>or click to pick a file (strain, stress in MPa; % or fraction auto-detected)</span>
+        </div>
+
+        <div class="ds-quick-row">
+          <button type="button" class="primary" id="dsLoadSample">Load sample CSV</button>
+          <button type="button" id="dsExportCsv">Export active CSV</button>
+        </div>
+
+        <details class="ds-box" id="dsPasteDetails">
+          <summary>Paste CSV / TSV / JSON data</summary>
+          <input type="text" id="dsPasteName" placeholder="Dataset name (e.g. Lab Run 3)">
+          <textarea id="dsPasteText" placeholder="strain,stress&#10;0.0000,0&#10;0.0014,292&#10;0.0020,264&#10;0.0200,266&#10;0.2400,394&#10;0.3100,285"></textarea>
+          <div class="ds-quick-row">
+            <button type="button" class="primary" id="dsPasteSim">Add &amp; Simulate</button>
+            <button type="button" id="dsPasteOverlay">Add as Overlay</button>
+          </div>
+        </details>
+
+        <details class="ds-box">
+          <summary>Save current parameters as dataset</summary>
+          <input type="text" id="dsParamName" placeholder="Name (e.g. 12 µm fine grain)">
+          <button type="button" id="dsSaveParam">Save parameter snapshot</button>
+        </details>
+
+        <div class="ph">
+          <h2 style="font-size:14px">Session datasets</h2>
+        </div>
+        <div class="ds-list" id="dsList"></div>
       </div>
     </aside>
 
-    <main class="center">
-      <div class="viewport">
-        <canvas id="atom" aria-label="Iron lattice with an edge dislocation, its extra half-plane and C/N atoms"></canvas>
-        <div class="toast" id="toast" role="status" aria-live="polite"></div>
-      </div>
+    <!-- Main Stage -->
+    <main class="stage">
+      <!-- VIEW 1: cm (50 mm) — Full Stress-Strain + Zoomed Lüders Bands Graph + Specimen in the grips -->
+      <section id="viewCm" class="view" aria-label="Centimetre scale (50 mm)">
+        <div class="figs" id="figs" aria-label="Key tensile metrics"></div>
 
-      <div class="strip">
-        <div class="gauge">
-          <div class="g-top"><span>Shear stress</span><b id="hudS">0</b><small>MPa</small></div>
-          <div class="g-bar"><i id="gFill"></i><i class="tick ly" id="gLY" title="Lower yield (lattice friction)"></i><i class="tick uy" id="gUY" title="Upper yield"></i></div>
-        </div>
-        <div class="bonds"><span>Bond switches</span><b id="hudB">0</b></div>
-        <div class="legend">
-          <span><i class="dot fe"></i>Fe</span>
-          <span><i class="dot half"></i>Extra half-plane</span>
-          <span><i class="dot cn"></i>C / N</span>
-          <span class="k-ly">┆ σLY</span>
-          <span class="k-uy">┆ σUY</span>
-        </div>
-      </div>
+        <div class="cm-top">
+          <section class="panel" id="chartPanel" aria-label="Engineering stress-strain curve">
+            <div class="ph">
+              <h2>Engineering stress against strain</h2>
+              <div class="chart-tools">
+                <button type="button" class="mini-btn" id="pin">Pin curve</button>
+                <button type="button" class="mini-btn" id="clear" hidden>Clear pins</button>
+              </div>
+            </div>
+            <div class="fig chartF" id="chartF">
+              <svg id="chart" role="img" aria-label="Full engineering stress-strain curve with live moving marker"></svg>
+            </div>
+          </section>
 
-      <div class="charts">
-        <section class="card">
-          <h4>Stress vs time</h4>
-          <div class="cv"><canvas id="chart"></canvas></div>
+          <section class="panel" id="zoomChartPanel" aria-label="Lüders bands zoomed yield region">
+            <div class="ph">
+              <h2>Lüders bands · Yield region zoom</h2>
+              <span class="zoom-badge" id="zoomBadge">0–3.1% strain</span>
+            </div>
+            <div class="fig chartF" id="zoomChartF">
+              <svg id="zoomChart" role="img" aria-label="Zoomed engineering stress-strain curve highlighting upper yield point A, yield drop to lower yield B, band nucleation serrations, and Lüders strain εL to C"></svg>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel specP" id="specPanel" aria-label="Specimen in the grips">
+          <div class="ph">
+            <h2>Specimen in the grips</h2>
+            <small id="specInfo">Gauge 50.0 mm</small>
+          </div>
+          <div class="spec-in">
+            <div class="fig specF">
+              <canvas id="spec" role="img" aria-label="Dog-bone tensile specimen in grips with Lüders bands, necking, fracture, and local strain profile"></canvas>
+            </div>
+            <div class="story" aria-live="polite">
+              <h3 id="stTitle">Elastic loading</h3>
+              <p id="stText"></p>
+            </div>
+          </div>
         </section>
-        <section class="card">
-          <h4>Energy along the slip plane <small>dip = atmosphere, tilt = stress</small></h4>
-          <div class="cv"><canvas id="land"></canvas></div>
+      </section>
+
+      <!-- VIEW 2: µm (Micrometre polycrystal) -->
+      <section id="viewMm" class="view" hidden aria-label="Micrometre scale (µm)">
+        <section class="panel mmP">
+          <div class="ph mm-header">
+            <h2 id="mmTitle">Micrometre scale · 820 × 440 µm polycrystal</h2>
+            <div class="mm-controls">
+              <div class="seg" role="group" aria-label="Microstructure view mode">
+                <button type="button" id="grainViewMicro" aria-pressed="true">Micrograph</button>
+                <button type="button" id="grainViewStrain" aria-pressed="false">Strain &amp; KAM</button>
+                <button type="button" id="grainViewIpf" aria-pressed="false">EBSD IPF</button>
+              </div>
+              <div class="seg" role="group" aria-label="Grain simulation mode">
+                <button type="button" id="grainSynced" aria-pressed="true">Synced</button>
+                <button type="button" id="grainSandbox" aria-pressed="false">Sandbox</button>
+              </div>
+              <button type="button" class="chip-btn" id="grainAging" aria-pressed="true">Locking</button>
+              <button type="button" class="chip-btn" id="grainSplit" aria-pressed="false">Split</button>
+              <button type="button" class="chip-btn" id="grainPiles" aria-pressed="true">Pile-ups</button>
+              <button type="button" class="chip-btn" id="grainContour" aria-pressed="true">Front</button>
+              <button type="button" class="chip-btn" id="grainFit">Fit</button>
+            </div>
+          </div>
+
+          <div class="mm-in">
+            <div class="mm-left">
+              <div class="fig mmF">
+                <canvas id="grainCanvas" role="img" aria-label="Equiaxed mild-steel ferrite and pearlite polycrystal showing sweeping inclined Lüders front, pinned C/N dislocations, oriented slip traces, dislocation pile-ups, voids, and fracture"></canvas>
+              </div>
+              <div class="legend mm-legend">
+                <span><i class="sw-box sw-ferrite"></i>α-Ferrite (pinned)</span>
+                <span><i class="sw-box sw-pearlite"></i>Pearlite lamellae</span>
+                <span><i class="sw-box sw-slip"></i>Yielded + slip bands</span>
+                <span><i class="sw-box" style="background:var(--trace)"></i>~55° Lüders front</span>
+                <span><svg viewBox="0 0 16 16"><path d="M3 10h10M8 10V3" stroke="var(--ink)" stroke-width="2" fill="none"/></svg>Pile-up (click → 9 nm)</span>
+              </div>
+            </div>
+
+            <div class="mm-side">
+              <div class="mm-hud-box">
+                <div class="fig mm-curveF"><canvas id="grainCurve" aria-label="Mini stress-strain curve"></canvas></div>
+              </div>
+              <div class="mm-hud-box">
+                <div class="fig mm-thumbF"><canvas id="grainThumb" aria-label="Micrometre window position along 50 mm specimen"></canvas></div>
+              </div>
+              <dl class="derived mm-der" id="grainDer"></dl>
+              <p class="mm-caption" id="grainCaption"></p>
+              <p class="mm-hint" id="grainCaptionHint" hidden></p>
+            </div>
+          </div>
         </section>
+      </section>
+
+      <!-- VIEW 3: nm (9 nm atomic lattice) — Lattice Lab standalone simulation -->
+      <section id="viewNm" class="view" hidden aria-label="Nanometre atomic scale (9 nm)">
+        <section class="panel atomP nm-embed">
+          <iframe id="nmFrame" class="nm-frame" title="Lattice Lab — Lüders at the atomic scale"
+                  loading="lazy" src="nm/index.html"></iframe>
+        </section>
+      </section>
+
+      <!-- Shared Bottom Playback Transport (syncs cm, µm, nm on one clock) -->
+      <div class="transport" role="region" aria-label="Simulation playback controls">
+        <button type="button" class="play-btn" id="play" aria-pressed="false" aria-label="Play" title="Play / Pause (Space)">
+          <svg viewBox="0 0 20 20" id="playIco"><path d="M5 3l12 7-12 7z"/></svg>
+        </button>
+
+        <div class="scrub-col">
+          <div class="stage-chips" id="stageChips" role="group" aria-label="Jump to tensile test stage"></div>
+          <div class="scrub-wrap">
+            <div class="scrub-track" id="scrubTrack"></div>
+            <input type="range" id="scrub" min="0" max="1000" value="300" aria-label="Position in the tensile test">
+          </div>
+        </div>
+
+        <div class="seg" id="speedGroup" role="group" aria-label="Playback speed">
+          <button type="button" data-speed="0.5" aria-pressed="false">0.5×</button>
+          <button type="button" data-speed="1" aria-pressed="true">1×</button>
+          <button type="button" data-speed="2" aria-pressed="false">2×</button>
+          <button type="button" data-speed="4" aria-pressed="false">4×</button>
+        </div>
+
+        <div class="tp-read">
+          <b id="tpStress">0 MPa</b>
+          <span id="tpStrain">0.00%</span>
+          <span class="tp-stage" id="tpStage" data-stage="elastic">Elastic</span>
+        </div>
       </div>
     </main>
-
-    <aside class="panel now">
-      <h3>What's happening</h3>
-      <ol class="phases" id="phases">
-        <li>Elastic</li>
-        <li>Locked</li>
-        <li>Breakaway</li>
-        <li>Glide</li>
-      </ol>
-      <p id="story" class="story"></p>
-
-      <div id="manualCtl" class="manual" hidden>
-        <div class="ptop"><span>Shear stress</span><output id="oS"></output></div>
-        <input type="range" id="sS" min="0" max="1000" step="1" aria-label="Applied shear stress">
-        <div class="btns">
-          <button type="button" id="fresh" class="ghost">Fresh dislocation</button>
-          <button type="button" id="age" class="ghost" aria-pressed="false">Age</button>
-        </div>
-      </div>
-
-      <div class="tiles">
-        <div class="tile accent"><span>Breaks free at</span><b id="tBreak">–</b><small>MPa</small></div>
-        <div class="tile"><span>C/N holding it</span><b id="tHold">–</b><small>atoms</small></div>
-        <div class="tile uy"><span>σUY model</span><b id="tUY">–</b><small>MPa</small></div>
-        <div class="tile ly"><span>σLY model</span><b id="tLY">–</b><small>MPa</small></div>
-      </div>
-      <dl id="read" class="read"></dl>
-    </aside>
   </div>
 </div>
-<script src="ypp_physics.js"></script>
-<script src="nm_sim.js"></script>
+
+<!-- Physics Equations Modal -->
+<dialog class="model-dialog" id="modelDialog" aria-label="Physics model equations and constants">
+  <div class="dlg-head">
+    <h2>How the tensile curve is computed</h2>
+    <button type="button" id="closeModelBtn">Close</button>
+  </div>
+  <div class="dlg-body">
+    <div>
+      <ol class="eqs">
+        <li><div class="eq"><i>σ</i><sub>LY</sub> = <i>σ</i><sub>0</sub> + <i>σ</i><sub>ss</sub> + <i>σ</i>*(<i>T</i>, <i>v</i>) + <i>k</i><sub>y</sub><i>d</i><sup>−½</sup></div><p><b>Lower yield stress.</b> Lattice friction, solid solution, thermal (Peierls) term, and Hall–Petch grain-boundary term.</p></li>
+        <li><div class="eq"><i>σ</i>* = <i>σ̂</i> [1 − (<i>kT</i> ln(<i>v</i><sub>0</sub>/<i>v</i>) / Δ<i>G</i><sub>0</sub>)<sup>2/3</sup>]<sup>2</sup></div><p><b>Thermally activated glide</b> (Kocks form) of screw dislocations in bcc iron.</p></li>
+        <li><div class="eq"><i>ε̇</i> = <i>φ b ρ</i><sub>m</sub> <i>v</i></div><p><b>Orowan relation.</b> With few mobile dislocations, each must glide faster, needing higher stress.</p></li>
+        <li><div class="eq">Δ<i>σ</i> = <i>σ</i>*(<i>v</i><sub>UY</sub>) − <i>σ</i>*(<i>v</i><sub>LY</sub>) + Δ<i>σ</i><sub>lock</sub></div><p><b>Yield drop</b> (Johnston–Gilman + Cottrell unlocking). Multiplication to ~10<sup>13</sup> m<sup>−2</sup> lowers the needed velocity and stress.</p></li>
+        <li><div class="eq"><i>θ</i> = <i>c</i>e<sup><i>U</i>/<i>kT</i></sup> / (1 + <i>c</i>e<sup><i>U</i>/<i>kT</i></sup>)</div><p><b>Atmosphere occupancy</b> (Langmuir–McLean). Locked fraction <i>f</i> = <i>θ</i>(1 − e<sup>−<i>c</i>/5 ppm</sup>); <i>k</i><sub>y</sub> = 0.25 + 0.45<i>f</i> MPa·m<sup>½</sup>.</p></li>
+        <li><div class="eq"><i>v</i><sub>front</sub> = <i>ε̇ L</i><sub>0</sub> / (<i>n</i><sub>f</sub> <i>ε</i><sub>L</sub>)</div><p><b>Band front speed.</b> Deformation is localized at the fronts sweeping the 50 mm gauge.</p></li>
+        <li><div class="eq"><i>σ</i> = <i>σ</i><sub>LY</sub> + <i>H</i><sub>∞</sub>(1 − e<sup>−(<i>ε</i>−<i>ε</i><sub>L</sub>)/<i>ε</i><sub>c</sub></sup>), <i>σ</i><sub>ρ</sub> = <i>αMμb</i>√<i>ρ</i></div><p><b>Work hardening</b> (Voce / Kocks–Mecking) after bands unite; Taylor relation tracks dislocation density.</p></li>
+        <li><div class="eq"><i>σ</i><sub>f</sub> <i>k</i><sub>y</sub> √<i>d</i> = <i>βμγ</i>(<i>T</i>) = 0.34 e<sup><i>T</i>/90 K</sup> MPa²·m</div><p><b>Cleavage</b> (Cottrell–Petch). Below the DBTT, cleavage intervenes before Lüders bands can form.</p></li>
+      </ol>
+    </div>
+    <div>
+      <h3>Constants &amp; limits</h3>
+      <table>
+        <thead><tr><th>Quantity</th><th style="text-align:right">Value</th></tr></thead>
+        <tbody>
+          <tr><td>Young's modulus <i>E</i> (298 K)</td><td class="n">210 GPa</td></tr>
+          <tr><td>Burgers vector <i>b</i></td><td class="n">0.248 nm</td></tr>
+          <tr><td>Peierls stress at 0 K, <i>σ̂</i></td><td class="n">900 MPa</td></tr>
+          <tr><td>Activation energy Δ<i>G</i><sub>0</sub></td><td class="n">0.75 eV</td></tr>
+          <tr><td>C–dislocation binding <i>U</i></td><td class="n">0.5 eV</td></tr>
+          <tr><td>C diffusion activation (DSA)</td><td class="n">0.87 eV</td></tr>
+          <tr><td>Taylor <i>αMμb</i></td><td class="n">1.64×10<sup>−5</sup> MPa·m</td></tr>
+          <tr><td>Gauge length <i>L</i><sub>0</sub></td><td class="n">50 mm</td></tr>
+        </tbody>
+      </table>
+      <ul>
+        <li>200-cell gauge automaton; bands nucleate and grow front by front.</li>
+        <li>Shortcuts: <b>1 / 2 / 3</b> cm / µm / nm · <b>Space</b> play · <b>← / →</b> scrub.</li>
+      </ul>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="src/ypp_physics.js?v=26"></script>
+<script src="src/datasets.js?v=26"></script>
+<script src="src/chart_ypp.js?v=26"></script>
+<script src="src/specimen_ypp.js?v=26"></script>
+<script src="src/scale_physics.js?v=26"></script>
+<script src="src/grain_model.js?v=26"></script>
+<script src="src/clock.js?v=26"></script>
+<script src="src/grain.js?v=26"></script>
+<script src="src/app.js?v=26"></script>
 </body>
 </html>

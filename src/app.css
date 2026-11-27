@@ -1296,6 +1296,10 @@ dialog.model-dialog::backdrop {
   padding: 0;
   overflow: hidden;
   background: #0b1118;
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
 }
 .nm-frame {
   display: block;
@@ -1304,8 +1308,13 @@ dialog.model-dialog::backdrop {
   min-height: 0;
   border: 0;
 }
-#viewNm { min-height: 0; }
-/* Lattice Lab brings its own parameters and transport, so give it the full stage. */
+#viewNm {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+#app[data-scale="nm"] .workspace {
+  grid-template-columns: minmax(0, 1fr);
+}
 #app[data-scale="nm"] .sidebar,
 #app[data-scale="nm"] .transport { display: none; }
-#app[data-scale="nm"] .stage { padding-bottom: 0; }
+#app[data-scale="nm"] .stage { padding: 0; }
